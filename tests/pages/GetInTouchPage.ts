@@ -4,12 +4,11 @@ import { BasePage } from './BasePage';
 /**
  * Page object for the Get in Touch form.
  *
- * This class contains the locators and reusable actions required to
- * interact with the form. Test cases remain responsible for defining
- * the scenarios and assertions.
+ * This class contains the page locators and reusable interactions.
+ * Test scenarios and assertions remain inside the spec file.
  */
 export class GetInTouchPage extends BasePage {
-  // Page elements
+  // Page
   private readonly pageHeading: Locator;
 
   // Form fields
@@ -18,14 +17,16 @@ export class GetInTouchPage extends BasePage {
   private readonly businessEmailField: Locator;
   private readonly phoneNumberField: Locator;
   private readonly jobFunctionDropdown: Locator;
-  private readonly relationshipRadios: Locator;
   private readonly howDidYouHearField: Locator;
   private readonly messageField: Locator;
 
-  // Form validation and submission
+  // Form controls and validation
   private readonly submitButton: Locator;
-  private readonly fieldErrorMessages: Locator;
+  private readonly requiredFieldErrorMessages: Locator;
   private readonly formLevelErrorMessage: Locator;
+  private readonly emailValidationMessage: Locator;
+  private readonly phoneValidationMessage: Locator;
+  private readonly relationshipValidationMessage: Locator;
 
   constructor(page: Page) {
     super(page);
@@ -35,88 +36,94 @@ export class GetInTouchPage extends BasePage {
       name: 'Drop us a line',
     });
 
-    // Form fields
+    // Required fields
     this.firstNameField = page.getByLabel('First Name');
     this.lastNameField = page.getByLabel('Last Name');
     this.businessEmailField = page.getByLabel('Business Email');
     this.phoneNumberField = page.getByLabel('Phone Number');
-
-    // This is a native HTML select element, so selectOption() is used.
     this.jobFunctionDropdown = page.getByLabel('Job Function');
+    this.relationshipValidationMessage = page
+    .getByRole('radio', { name: 'Microsoft customer.' })
+    .locator(
+    'xpath=ancestor::*[contains(@class,"hs-form-field")][1]'
+    )
+    .locator('.hs-error-msg');
 
-    this.relationshipRadios = page.getByRole('radio');
-
+    // Optional fields
     this.howDidYouHearField = page.getByLabel(
       'How did you hear about us?'
     );
 
     this.messageField = page.getByLabel('Message');
 
-    // Form controls
+    // Submit button
     this.submitButton = page.getByRole('button', {
       name: 'Submit',
     });
-    
-    this.fieldErrorMessages = page.locator('.hs-error-msg');
+
+    /**
+     * We locate required-field errors using their exact text instead of
+     * counting every error on the page.
+     *
+     * This prevents unrelated validation, such as reCAPTCHA validation,
+     * from affecting the required-field error count.
+     */
+    this.requiredFieldErrorMessages = page.getByText(
+      'Please complete this required field.',
+      { exact: true }
+    );
 
     this.formLevelErrorMessage = page.getByText(
       'Please complete all required fields.',
       { exact: true }
     );
+
+    this.emailValidationMessage = page.getByText(
+      'Email must be formatted correctly.',
+      { exact: true }
+    );
+
+    this.phoneValidationMessage = page.getByText(
+      'The number you entered is not in range.',
+      { exact: true }
+    );
   }
 
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
   // Navigation
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
 
   /**
    * Opens the Get in Touch page directly.
    *
-   * Direct navigation is used by form tests because those tests are focused
-   * on form behavior rather than testing the site's navigation menu.
+   * Cookie consent is handled before tests interact with the form because
+   * the consent process can cause the page or embedded form to refresh.
    */
   async gotoGetInTouchPage(): Promise<void> {
     await this.goto('/get-in-touch');
-    await this.waitForPageLoad();
-    await this.dismissCookieBanner();
+
+    await this.dismissCookieBannerIfPresent();
+
+    /**
+     * First Name is used as the form-readiness signal.
+     *
+     * This wait happens after cookie handling so any consent-related refresh
+     * has a chance to complete before the test starts entering data.
+     */
+    await this.firstNameField.waitFor({
+      state: 'visible',
+      timeout: 15000,
+    });
   }
 
-  /**
-   * Navigates to the Get in Touch page through the Talk to an Expert link.
-   *
-   * This method is used by the navigation smoke test.
-   */
-  async navigateToGetInTouchFromHomePage(): Promise<void> {
-  await this.goto('/');
-  await this.waitForPageLoad();
-  await this.dismissCookieBanner();
-
-  // The "Speak to An Expert" link only appears after hovering
-  // over the "Get in Touch" nav item, which opens a submenu.
-  const getInTouchNavItem = this.page.getByRole('link', {
-    name: 'Get in Touch',
-    exact: true,
-  });
-  await getInTouchNavItem.hover();
-
-  const speakToAnExpertLink = this.page.getByRole('link', {
-    name: 'Speak to An Expert',
-  });
-  await speakToAnExpertLink.click();
-
-  await this.waitForPageLoad();
-  await this.dismissCookieBanner();
-}
-
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
   // Form actions
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
 
   /**
-   * Fills the text fields supplied by the test.
+   * Fills only the fields provided by the calling test.
    *
-   * Fields are only filled when a value is provided. This allows negative
-   * tests to intentionally leave required fields empty.
+   * This allows tests to intentionally leave individual fields empty.
    */
   async fillForm(data: {
     firstName?: string;
@@ -152,7 +159,7 @@ export class GetInTouchPage extends BasePage {
   }
 
   /**
-   * Selects a specific Job Function from the native HTML select element.
+   * Selects a Job Function from the native HTML dropdown.
    */
   async selectJobFunction(jobFunction: string): Promise<void> {
     await this.jobFunctionDropdown.selectOption({
@@ -160,31 +167,20 @@ export class GetInTouchPage extends BasePage {
     });
   }
 
+  
   /**
-   * Selects a relationship option by its accessible name.
+   * Clicks the form Submit button.
    *
-   * The exact option label can be supplied by the test data.
-   */
-  async selectRelationship(optionLabel: string): Promise<void> {
-  await this.page
-    .getByRole('radio', { name: optionLabel })
-    .check();
-}
-
-  /**
-   * Submits the form.
-   *
-   * Tests should only call this when submission is intentionally part of
-   * the scenario. Production tests should use a safety guard to avoid
-   * creating a real submission.
+   * Tests only call this when the form is intentionally invalid or incomplete,
+   * preventing a successful production submission.
    */
   async submitForm(): Promise<void> {
     await this.submitButton.click();
   }
 
-  // ---------------------------------------------------------------------------
-  // Page and field accessors
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
+  // Field accessors used by assertions
+  // ===========================================================================
 
   getPageHeading(): Locator {
     return this.pageHeading;
@@ -214,41 +210,27 @@ export class GetInTouchPage extends BasePage {
     return this.messageField;
   }
 
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
   // Validation accessors
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
 
-  /**
-   * Returns all field-level validation messages.
-   */
-  getFieldErrorMessages(): Locator {
-    return this.fieldErrorMessages;
+  getRequiredFieldErrorMessages(): Locator {
+    return this.requiredFieldErrorMessages;
   }
 
-  /**
-   * Returns the number of field-level validation messages currently displayed.
-   */
-  async getFieldErrorCount(): Promise<number> {
-    return this.fieldErrorMessages.count();
-  }
-
-  /**
-   * Returns the form-level validation message.
-   */
   getFormLevelErrorMessage(): Locator {
     return this.formLevelErrorMessage;
   }
-  /**
- * Returns the specific validation message for an invalid email format.
- */
-getEmailValidationMessage(): Locator {
-  return this.page.getByText('Email must be formatted correctly.', { exact: true });
-}
 
-/**
- * Returns the specific validation message for an invalid phone number.
- */
-getPhoneValidationMessage(): Locator {
-  return this.page.getByText('The number you entered is not in range.', { exact: true });
+  getEmailValidationMessage(): Locator {
+    return this.emailValidationMessage;
+  }
+
+  getPhoneValidationMessage(): Locator {
+    return this.phoneValidationMessage;
+  }
+ 
+  getRelationshipValidationMessage(): Locator {
+  return this.relationshipValidationMessage;
 }
 }

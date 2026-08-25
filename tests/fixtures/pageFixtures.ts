@@ -3,9 +3,10 @@ import { GetInTouchPage } from '../pages/GetInTouchPage';
 import { CaseStudiesPage } from '../pages/CaseStudiesPage';
 
 /**
- * Extends Playwright's base test so every test file can request a ready
- * to use page object directly, for example { getInTouchPage }, instead
- * of creating a new one by hand in every single test.
+ * Extends Playwright's built-in test fixture with reusable page objects.
+ *
+ * Tests can request these page objects directly instead of creating
+ * a new instance inside every test.
  */
 type PageFixtures = {
   getInTouchPage: GetInTouchPage;
@@ -16,6 +17,7 @@ export const test = base.extend<PageFixtures>({
   getInTouchPage: async ({ page }, use) => {
     await use(new GetInTouchPage(page));
   },
+
   caseStudiesPage: async ({ page }, use) => {
     await use(new CaseStudiesPage(page));
   },

@@ -1,10 +1,10 @@
 import { Page } from '@playwright/test';
 
 /**
- * Parent class for all page objects. Holds behavior every page needs,
- * like navigating and waiting for load, plus dismissing the cookie
- * banner, so this logic exists in one place instead of being repeated
- * in every page object.
+ * Base page for functionality shared by page objects.
+ *
+ * Common browser-level behavior such as navigation and cookie handling
+ * is kept here so it does not need to be repeated in every page object.
  */
 export class BasePage {
   readonly page: Page;
@@ -13,18 +13,53 @@ export class BasePage {
     this.page = page;
   }
 
-  async goto(path: string = '/') {
-  await this.page.goto(path, { waitUntil: 'domcontentloaded' });
-}
+  /**
+   * Navigates to a relative application path.
+   *
+   * DOMContentLoaded is used instead of networkidle because modern websites
+   * can continue making background network requests after the page is usable.
+   */
+  async goto(path: string = '/'): Promise<void> {
+    await this.page.goto(path, {
+      waitUntil: 'domcontentloaded',
+    });
+  }
 
-async waitForPageLoad() {
-  await this.page.waitForLoadState('domcontentloaded');
-}
+  /**
+   * Waits for the cookie banner to appear before test interaction begins.
+   *
+   * The banner sometimes appears several seconds after the initial page load.
+   * If it appears, it is dismissed before any form data is entered.
+   *
+   * If it does not appear within the expected period, the test continues.
+   */
+  async dismissCookieBannerIfPresent(): Promise<void> {
+    const optOutButton = this.page.getByRole('button', {
+      name: 'Opt Out',
+    });
 
-  async dismissCookieBanner() {
-    const declineButton = this.page.locator('#hs-eu-decline-button');
-    if (await declineButton.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await declineButton.click();
+    try {
+      await optOutButton.waitFor({
+        state: 'visible',
+        timeout: 8000,
+      });
+
+      await optOutButton.click();
+
+      // The website may refresh/re-render after cookie consent is saved.
+      // Waiting for the button to disappear ensures that process has started
+      // before the test proceeds to the form.
+      await optOutButton
+        .waitFor({
+          state: 'hidden',
+          timeout: 5000,
+        })
+        .catch(() => {
+          // The element may disappear because the page itself was replaced.
+        });
+    } catch {
+      // The banner did not appear within the expected time.
+      // Continue without failing the test.
     }
   }
 }

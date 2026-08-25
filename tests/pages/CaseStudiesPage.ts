@@ -2,59 +2,80 @@ import { Page, Locator } from '@playwright/test';
 import { BasePage } from './BasePage';
 
 /**
- * Page object for the Case Studies filter section on orchestry.com/resources.
- * Covers selecting the two filter dropdowns and reading back the results,
- * including checking whether a friendly message appears when a filter
- * combination has zero matches.
+ * Page object for the Case Studies filters on the Resources page.
  */
 export class CaseStudiesPage extends BasePage {
+  private readonly typeDropdown: Locator;
+  private readonly categoryDropdown: Locator;
+  private readonly emptyStateMessage: Locator;
+
   constructor(page: Page) {
     super(page);
+
+    this.typeDropdown = page.getByRole('combobox').first();
+    this.categoryDropdown = page.getByRole('combobox').nth(1);
+
+    this.emptyStateMessage = page.getByText(
+      /no .* found|no results|check back|stay tuned/i
+    );
   }
 
-  // Locators
+  /**
+   * Opens the Resources page and waits until the filters are ready.
+   */
+  async gotoCaseStudies(): Promise<void> {
+    await this.goto('/resources');
 
-  private get typeDropdown(): Locator {
-    return this.page.getByRole('combobox').first();
+    await this.dismissCookieBannerIfPresent();
+
+    await this.typeDropdown.waitFor({
+      state: 'visible',
+      timeout: 15000,
+    });
+
+    await this.typeDropdown.scrollIntoViewIfNeeded();
   }
 
-  private get categoryDropdown(): Locator {
-    return this.page.getByRole('combobox').nth(1);
+  /**
+   * Applies the Type and Category filters.
+   */
+  async applyFilters(
+    type: string,
+    category: string
+  ): Promise<void> {
+    await this.typeDropdown.selectOption({
+      label: type,
+    });
+
+    await this.categoryDropdown.selectOption({
+      label: category,
+    });
   }
 
-  private get resultCards(): Locator {
-    return this.page.locator('a.link-wrap');
+  /**
+   * Returns the visible text of the currently selected Type option.
+   */
+  async getSelectedType(): Promise<string> {
+    return this.typeDropdown
+      .locator('option:checked')
+      .innerText();
   }
 
-  private get emptyStateMessage(): Locator {
-    return this.page.getByText(/no .* found|check back|stay tuned/i);
+  /**
+   * Returns the visible text of the currently selected Category option.
+   */
+  async getSelectedCategory(): Promise<string> {
+    return this.categoryDropdown
+      .locator('option:checked')
+      .innerText();
   }
 
-  // Navigation
-
-  async gotoCaseStudies() {
-    await this.goto('/resources#case-study');
-    await this.waitForPageLoad();
-    await this.dismissCookieBanner();
-  }
-
-  // Actions
-
-  async filterByType(value: string) {
-    await this.typeDropdown.selectOption({ value });
-  }
-
-  async filterByCategory(value: string) {
-    await this.categoryDropdown.selectOption({ value });
-  }
-
-  // Reads and checks
-
+  /**
+   * Checks whether a friendly empty-state message is visible.
+   */
   async hasEmptyStateMessage(): Promise<boolean> {
-    return this.emptyStateMessage.isVisible().catch(() => false);
-  }
-
-  async getResultCount(): Promise<number> {
-    return this.resultCards.count();
+    return this.emptyStateMessage
+      .isVisible()
+      .catch(() => false);
   }
 }

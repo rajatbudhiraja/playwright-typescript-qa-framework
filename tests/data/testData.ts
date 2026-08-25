@@ -24,3 +24,13 @@ export const getInTouchTestData = {
   longText:
     'This is intentionally long test data used to verify that the optional text fields can handle reasonably large input without unexpected validation errors.',
 };
+
+
+/**
+ * Test data used by the Case Studies filter tests.
+ */
+export const caseStudyFilters = {
+  type: 'Case Study',
+  validCategoryWithResults: 'Higher Education',
+  categoryWithNoResults: 'Microsoft 365 Copilot',
+};

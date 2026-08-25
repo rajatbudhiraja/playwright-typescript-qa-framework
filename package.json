@@ -4,8 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "playwright test",
+    "test": "playwright test --project=chromium",
     "test:headed": "playwright test --headed",
+    "test:smoke": "playwright test --grep @smoke --project=chromium",
+    "test:case-studies": "playwright test tests/specs/caseStudiesFilter.spec.ts --project=chromium",
     "report": "playwright show-report",
     "allure:generate": "allure generate allure-results --clean",
     "allure:open": "allure open allure-report",
