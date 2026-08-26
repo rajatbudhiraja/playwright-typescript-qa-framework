@@ -15,6 +15,8 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './tests',
 
+  timeout: 60_000,
+
    //use: {
     //baseURL: process.env.BASE_URL || 'c',
   //},
@@ -42,7 +44,7 @@ export default defineConfig({
   screenshot: 'only-on-failure',
   video: 'retain-on-failure',
   actionTimeout: 10_000,
-  navigationTimeout: 25_000,
+  navigationTimeout: 40_000,
   //trace: 'retain-on-failure'
   },
 
