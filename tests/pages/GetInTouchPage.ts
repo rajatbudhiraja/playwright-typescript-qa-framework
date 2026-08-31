@@ -210,6 +210,10 @@ export class GetInTouchPage extends BasePage {
     return this.messageField;
   }
 
+  getJobFunctionDropdown(): Locator {
+  return this.jobFunctionDropdown;
+}
+
   // ===========================================================================
   // Validation accessors
   // ===========================================================================
